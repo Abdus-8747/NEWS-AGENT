@@ -36,15 +36,14 @@ app.add_middleware(
 )
 
 
-# ✅ Create tables on startup
+
 @app.on_event("startup")
 def startup():
-    logger.info("Starting up server and ensuring database tables exist")
-    Base.metadata.create_all(bind=engine)
-    with engine.begin() as conn:
-        conn.execute(text("ALTER TABLE articles ADD COLUMN IF NOT EXISTS ai_summary TEXT"))
-    start_scheduler()
-    logger.info("Startup initialization complete")
+    try:
+        logger.info("Starting scheduler")
+        start_scheduler()
+    except Exception as e:
+        logger.error(f"Startup error: {e}")
 
 
 @app.on_event("shutdown")
