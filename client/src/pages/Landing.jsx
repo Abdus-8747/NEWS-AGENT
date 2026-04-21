@@ -487,7 +487,7 @@ export default function LandingPage() {
               </button>
 
               <a
-                href="https://discord.gg/Q3W88f6h"
+                href="https://codebuilders.co.in"
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-3 rounded-xl bg-[#111] border border-[#333] px-8 py-4 text-sm font-bold uppercase tracking-widest text-[#d4d4d4] transition-all hover:bg-[#1a1a1a] hover:text-white hover:border-[#ef4444]/50 shadow-xl w-full sm:w-auto justify-center group"
