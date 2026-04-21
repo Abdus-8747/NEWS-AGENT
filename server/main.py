@@ -35,8 +35,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-
 @app.on_event("startup")
 def startup():
     try:
@@ -57,7 +55,7 @@ def root():
     return {"message": "Tech News Agent API is running"}
 
 
-@app.get("/health")
+@app.get("/health", methods=["GET", "HEAD"])
 def health_check():
     db_ok = True
     try:
