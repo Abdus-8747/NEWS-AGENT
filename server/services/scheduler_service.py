@@ -41,8 +41,8 @@ def start_scheduler():
             run_news_generation_job,
             trigger="cron",
             hour=8,
-            minute=55,
-            id="daily_news_generation_855am",
+            minute=50,
+            id="daily_news_generation_850am",
             replace_existing=True,
             max_instances=1,
             coalesce=True,
@@ -61,7 +61,7 @@ def start_scheduler():
         )
         scheduler.start()
         _scheduler_started = True
-        logger.info("Daily scheduler started with jobs at 8:55 and 9:00 (%s)", scheduler.timezone)
+        logger.info("Daily scheduler started with jobs at 8:50 and 9:00 (%s)", scheduler.timezone)
 
     return scheduler
 

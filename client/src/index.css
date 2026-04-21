@@ -2,22 +2,22 @@
 
 @layer base {
   :root {
-    --background: 222.2 84% 4.9%;    /* Deep Navy */
-    --foreground: 210 40% 98%;      /* Off-white text */
+    --background: 0 0% 2%;    /* #050505 */
+    --foreground: 0 0% 90%;   /* #e5e5e5 */
     
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 4%;
+    --card-foreground: 0 0% 90%;
     
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 4%;
+    --popover-foreground: 0 0% 90%;
     
-    --primary: 217.2 91.2% 59.8%;   /* Bright Blue */
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 0 84% 60%;   /* #ef4444 (Red Accent) */
+    --primary-foreground: 0 0% 2%;
     
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 0 0% 12%;  /* #1f1f1f */
+    --secondary-foreground: 0 0% 90%;
     
-    --muted: 217.2 32.6% 17.5%;
+    --muted: 0 0% 12%;
     --muted-foreground: 215 20.2% 65.1%;
     
     --accent: 217.2 32.6% 17.5%;

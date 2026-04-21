@@ -22,64 +22,122 @@ BLOCKED_SOURCES = [
     "consent.yahoo.com"
 ]
 
+# 🔍 multi-query expansion
+QUERIES = [
+    "technology",
+    "AI",
+    "machine learning",
+    "web development",
+    "software engineering",
+    "tech startups"
+]
+
+
+# =========================
+# 🔥 FETCH (multi-query)
+# =========================
+
+import time
+
+def safe_fetch(url, params):
+    try:
+        res = requests.get(url, params=params, timeout=10)
+
+        if res.status_code != 200:
+            print(f"⚠️ Status {res.status_code}: {res.text[:80]}")
+            return None
+
+        if not res.text.strip():
+            print("⚠️ Empty response")
+            return None
+
+        return res.json()
+
+    except Exception as e:
+        print(f"❌ Fetch error: {e}")
+        return None
 
 def fetch_news():
     url = "https://newsapi.org/v2/everything"
 
     today = datetime.utcnow()
-    yesterday = today - timedelta(days=1)
+    since = today - timedelta(days=2)
 
-    params = {
-        "q": "software development OR programming OR coding OR technology OR AI OR tech startups OR web development OR machine learning OR data science OR cybersecurity OR cloud computing OR blockchain OR programming languages OR software engineering",
-        "from": yesterday.strftime("%Y-%m-%d"),
-        "to": today.strftime("%Y-%m-%d"),
-        "sortBy": "publishedAt",
-        "language": "en",
-        "pageSize": 50,
-        "apiKey": API_KEY
-    }
+    all_articles = []
+    seen_urls = set()
 
-    res = requests.get(url, params=params)
+    for query in QUERIES:
+        for page in range(1, 2):  # 🔥 start with 1 page (stable)
+            print(f"🔍 Fetching: {query} | page {page}")
 
-    if res.status_code != 200:
-        raise Exception(f"News API Error: {res.text}")
+            params = {
+                "q": query,
+                "from": since.strftime("%Y-%m-%d"),
+                "to": today.strftime("%Y-%m-%d"),
+                "sortBy": "publishedAt",
+                "language": "en",
+                "pageSize": 25,
+                "page": page,
+                "apiKey": API_KEY
+            }
 
-    return res.json().get("articles", [])
+            data = safe_fetch(url, params)
 
-def print_news():
-        db = SessionLocal()
-        articles = db.query(Article).order_by(Article.published_at.desc()).limit(10).all()
+            if not data:
+                continue
 
-        for art in articles:
-            print(f"{art.title} ({art.description}) - {art.published_at}")
-        return {art.description for art in articles}
+            articles = data.get("articles", [])
 
+            if not articles:
+                break
+
+            for article in articles:
+                article_url = article.get("url")
+
+                if not article_url or article_url in seen_urls:
+                    continue
+
+                seen_urls.add(article_url)
+                all_articles.append(article)
+
+            time.sleep(1.2)
+
+            # 🔥 stop early if enough data
+            if len(all_articles) >= 100:
+                print("🛑 Enough articles collected")
+                print(f"📰 Total fetched: {len(all_articles)}")
+                return all_articles
+
+    print(f"📰 Total fetched: {len(all_articles)}")
+    return all_articles
+
+
+# =========================
+# 🧹 CLEANING
+# =========================
 def is_valid_article(article):
     title = article.get("title")
     url = article.get("url")
     source = article.get("source", {}).get("name")
     image_url = article.get("urlToImage")
 
-    # ❌ basic validation
     if not title or not url:
         return False
 
-    # ❌ skip blocked sources
     if source in BLOCKED_SOURCES:
         return False
 
-    # ❌ skip consent / tracking links
     if "consent" in url:
         return False
 
-    # ❌ skip useless titles
     if len(title) < 20:
         return False
-    
+
     if not image_url:
         return False
 
     return True
+
 
 def transform_articles(raw_articles):
     cleaned = []
@@ -98,105 +156,173 @@ def transform_articles(raw_articles):
             "published_at": article.get("publishedAt"),
         })
 
+    print(f"🧹 Cleaned: {len(cleaned)}")
     return cleaned
 
 
+# =========================
+# 🤖 GROQ PROMPT
+# =========================
 def _build_groq_prompt(articles):
-    compact_articles = []
-    for article in articles:
-        compact_articles.append({
-            "title": article.get("title"),
-            "description": article.get("description"),
-            "url": article.get("url"),
-            "source": article.get("source"),
-            "author": article.get("author"),
-            "published_at": article.get("published_at"),
+    compact = []
+
+    for a in articles:
+        compact.append({
+            "title": a.get("title"),
+            "desc": (a.get("description") or "")[:120],
+            "url": a.get("url"),
         })
 
     instructions = {
-        "task": "Select the most relevant technology/software articles for a developer-focused daily digest.",
-        "selection_rules": [
-            "Prefer practical software, AI engineering, cloud, security, data, and dev-tooling updates.",
-            "Avoid generic business/news noise.",
-            "Pick at most 10 items.",
-            "Return only valid JSON matching the schema."
+        "task": "Select only high-signal developer-relevant tech articles.",
+        "rules": [
+            "ONLY include software engineering, AI, dev tools, cloud, cybersecurity.",
+            "REMOVE jobs, ads, and generic news.",
+            "Prefer practical engineering insights.",
+            "Max 15 articles."
         ],
         "schema": {
             "selected_articles": [
-                {
-                    "url": "string",
-                    "ai_summary": "string"
-                }
+                {"url": "string", "ai_summary": "string"}
             ]
         },
-        "articles": compact_articles
+        "articles": compact
     }
 
-    return json.dumps(instructions, ensure_ascii=True)
+    return json.dumps(instructions)
 
 
-def select_relevant_with_groq(cleaned_articles):
-    if not cleaned_articles:
+# =========================
+# 🧠 GROQ CALL
+# =========================
+def safe_json_parse(content):
+    try:
+        return json.loads(content)
+    except Exception as e:
+        print("⚠️ JSON parse error:", e)
+        return {"selected_articles": []}
+
+
+def select_relevant_with_groq(articles):
+    if not articles:
         return []
 
     if not GROQ_API_KEY:
-        # Graceful fallback if Groq credentials are not configured.
-        return cleaned_articles[:10]
+        return articles[:10]
 
-    prompt = _build_groq_prompt(cleaned_articles[:30])
+    prompt = _build_groq_prompt(articles)
+
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json",
     }
+
     payload = {
         "model": GROQ_MODEL,
         "temperature": 0.2,
         "response_format": {"type": "json_object"},
         "messages": [
-            {
-                "role": "system",
-                "content": "You are a strict JSON API. Return only JSON without markdown.",
-            },
+            {"role": "system", "content": "Return ONLY JSON."},
             {"role": "user", "content": prompt},
         ],
     }
 
-    response = requests.post(
+    res = requests.post(
         "https://api.groq.com/openai/v1/chat/completions",
         headers=headers,
         json=payload,
         timeout=45,
     )
-    if response.status_code != 200:
-        raise Exception(f"Groq API Error: {response.text}")
 
-    data = response.json()
-    content = data["choices"][0]["message"]["content"]
-    parsed = json.loads(content)
+    if res.status_code != 200:
+        raise Exception(res.text)
+
+    content = res.json()["choices"][0]["message"]["content"]
+    parsed = safe_json_parse(content)
+
     selected_rows = parsed.get("selected_articles", [])
 
-    selected_by_url = {}
-    for row in selected_rows:
-        url = row.get("url")
-        if not url:
-            continue
-        selected_by_url[url] = {
-            "ai_summary": row.get("ai_summary") or "",
-        }
+    selected_map = {
+        row["url"]: row.get("ai_summary", "")
+        for row in selected_rows if row.get("url")
+    }
 
-    final_selection = []
-    for article in cleaned_articles:
-        meta = selected_by_url.get(article.get("url"))
-        if not meta:
-            continue
+    final = []
 
-        item = dict(article)
-        item["ai_summary"] = meta["ai_summary"]
-        final_selection.append(item)
-        print(f"✅ Selected: {item['ai_summary'][:60]}... - {item['title']}")
+    for article in articles:
+        if article["url"] in selected_map:
+            item = dict(article)
+            item["ai_summary"] = selected_map[article["url"]]
+            final.append(item)
 
-    return final_selection
+    return final
 
+
+# =========================
+# 🔥 MULTI-STAGE LLM
+# =========================
+def chunk_articles(articles, size=12):
+    for i in range(0, len(articles), size):
+        yield articles[i:i + size]
+
+
+def batch_select(articles):
+    all_selected = []
+
+    for batch in chunk_articles(articles, 12):
+        try:
+            result = select_relevant_with_groq(batch)
+            all_selected.extend(result)
+            time.sleep(6)  # Avoid busting TPM limits
+        except Exception as e:
+            error_str = str(e).lower()
+            if "rate limit" in error_str or "429" in error_str:
+                print("⏳ Rate Limit Hit during batch. Waiting 30s...")
+                time.sleep(30)
+            else:
+                print("❌ Batch error:", e)
+
+    print(f"📦 Batch selected: {len(all_selected)}")
+    return all_selected
+
+
+def final_select(articles):
+    time.sleep(4)  # Padding to ensure we don't trip limits
+    return select_relevant_with_groq(articles[:20])
+
+
+def multi_stage_groq_selection(cleaned):
+    if not cleaned:
+        return []
+
+    # Cap at 60 articles to prevent blowing through the 12,000 TPM Groq Free Tier Limit
+    cleaned = cleaned[:60]
+
+    batch = batch_select(cleaned)
+
+    if not batch:
+        return cleaned[:10]
+
+    # dedup
+    seen = set()
+    unique = []
+
+    for a in batch:
+        if a["url"] not in seen:
+            seen.add(a["url"])
+            unique.append(a)
+
+    print(f"🔁 Dedup: {len(unique)}")
+
+    final = final_select(unique)
+
+    print(f"🎯 Final: {len(final)}")
+    return final
+
+
+# =========================
+# 💾 SAVE
+# =========================
 def save_articles(articles):
     if not articles:
         return 0
@@ -204,13 +330,7 @@ def save_articles(articles):
     db = SessionLocal()
 
     try:
-        normalized_articles = []
-        for article in articles:
-            row = dict(article)
-            row.setdefault("ai_summary", "")
-            normalized_articles.append(row)
-
-        stmt = insert(Article).values(normalized_articles)
+        stmt = insert(Article).values(articles)
 
         stmt = stmt.on_conflict_do_update(
             index_elements=["url"],
@@ -227,7 +347,6 @@ def save_articles(articles):
 
         result = db.execute(stmt)
         db.commit()
-
         return result.rowcount or 0
 
     except Exception as e:
@@ -238,18 +357,16 @@ def save_articles(articles):
     finally:
         db.close()
 
+
+# =========================
+# 🚀 MAIN PIPELINE
+# =========================
 def fetch_and_store_news():
     raw = fetch_news()
 
-    print(f"📰 Fetched: {len(raw)}")
-
     cleaned = transform_articles(raw)
 
-    print(f"🧹 Cleaned: {len(cleaned)}")
-
-    selected = select_relevant_with_groq(cleaned)
-
-    print(f"🎯 Selected: {len(selected)}")
+    selected = multi_stage_groq_selection(cleaned)
 
     inserted = save_articles(selected)
 

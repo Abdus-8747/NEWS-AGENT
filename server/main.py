@@ -55,7 +55,7 @@ def root():
     return {"message": "Tech News Agent API is running"}
 
 
-@app.get("/health", methods=["GET", "HEAD"])
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health_check():
     db_ok = True
     try:
