@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from db.connection import SessionLocal
-from db.models import User
+from db.models import User, CategoryEnum
 from services.email_service import get_articles_for_user, send_welcome_email
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
@@ -15,20 +15,28 @@ class SubscribeRequest(BaseModel):
     preferences: List[str] = []
 
 
+@router.get("/categories")
+def get_categories():
+    return {"categories": [c.value for c in CategoryEnum]}
+
+
 @router.post("/subscribe")
 def subscribe_user(payload: SubscribeRequest):
     email = payload.email.strip().lower()
     if not email or "@" not in email:
         raise HTTPException(status_code=400, detail="Invalid email")
 
+    if len(payload.preferences) < 2:
+        raise HTTPException(status_code=400, detail="Please select at least 2 categories.")
+
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.email == email).first()
         if user and user.is_active:
-            user.preferences = list(set(payload.preferences + ["AI", "technology"]))
+            user.preferences = list(set(payload.preferences))
             db.commit()
             return {
-                "message": "Welcome back! Your preferences are updated.",
+                "message": "Preferences updated successfully.",
                 "created": False,
                 "user": {
                     "id": user.id,
@@ -41,7 +49,7 @@ def subscribe_user(payload: SubscribeRequest):
         created = False
         
         if not user:
-            user = User(email=email, is_active=True, preferences=list(set(payload.preferences + ["AI", "technology"])))
+            user = User(email=email, is_active=True, preferences=list(set(payload.preferences)))
             db.add(user)
             db.flush()
             created = True
@@ -49,7 +57,7 @@ def subscribe_user(payload: SubscribeRequest):
             message_text = "Subscribed successfully. Your daily tech news will arrive at 9:00 AM."
         else:
             user.is_active = True
-            user.preferences = list(set(payload.preferences + ["AI", "technology"]))
+            user.preferences = list(set(payload.preferences))
             send_welcome_email(user.email)
             message_text = "Welcome back! We've reactivated your daily subscription."
 

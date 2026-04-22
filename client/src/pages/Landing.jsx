@@ -43,14 +43,22 @@ export default function LandingPage() {
   const [preferences, setPreferences] = useState(["technology", "AI"]);
   const [loading, setLoading] = useState(false);
 
-  const categories = [
-    "technology",
-    "AI",
-    "machine learning",
-    "web development",
-    "software engineering",
-    "tech startups"
-  ];
+  const [categories, setCategories] = useState([]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/api/v1/users/categories`);
+        if (res.data.categories) {
+          setCategories(res.data.categories);
+        }
+      } catch (err) {
+        console.error("Failed to fetch categories", err);
+        setCategories(["technology", "AI", "machine learning", "web development", "software engineering", "tech startups"]);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const handleCategoryToggle = (cat) => {
     if (preferences.includes(cat)) {
@@ -99,6 +107,11 @@ export default function LandingPage() {
 
     if (!email.trim() || !isValidEmail) {
       setMessage({ type: "error", text: "Please enter a valid email address." });
+      return;
+    }
+
+    if (preferences.length < 2) {
+      setMessage({ type: "error", text: "Please select at least 2 categories." });
       return;
     }
 
@@ -250,7 +263,6 @@ export default function LandingPage() {
                     <p className="text-xs text-[#a3a3a3] mb-3 uppercase tracking-wider font-mono">Select Topics</p>
                     <div className="flex flex-wrap gap-2">
                       {categories.map((cat) => {
-                        const isCompulsory = cat === "AI" || cat === "technology";
                         return (
                           <button
                             key={cat}
@@ -259,7 +271,7 @@ export default function LandingPage() {
                             className={`px-3 py-1.5 rounded-full text-xs font-mono transition-all duration-200 border flex items-center gap-1 ${preferences.includes(cat)
                               ? "bg-[#ef4444]/20 border-[#ef4444] text-[#ef4444]"
                               : "bg-[#111] border-[#1f1f1f] text-[#a3a3a3] hover:border-[#ef4444]/50 hover:text-[#ef4444]"
-                              } ${isCompulsory ? "cursor-not-allowed opacity-90" : ""}`}
+                              }`}
                           >
                             {cat}
                           </button>
