@@ -22,6 +22,9 @@ export default function Navbar() {
               <Link to="/today" className="text-[10px] sm:text-xs text-[#a3a3a3] hover:text-white transition-colors font-mono">
                 [ GLOB_FEED ]
               </Link>
+              <Link to="/mynews" className="text-[10px] sm:text-xs text-[#a3a3a3] hover:text-white transition-colors font-mono">
+                [ MY_NEWS ]
+              </Link>
               <Link to="/github" className="text-[10px] sm:text-xs text-[#a3a3a3] hover:text-[#ef4444] transition-colors font-mono">
                 [ GITHUB ]
               </Link>

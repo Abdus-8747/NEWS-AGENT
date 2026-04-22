@@ -2,8 +2,10 @@ import os
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from datetime import datetime, date, timedelta
 
 from dotenv import load_dotenv
+from sqlalchemy import func, or_
 
 from db.connection import SessionLocal
 from db.models import Article, Delivery, User
@@ -16,7 +18,7 @@ EMAIL = os.getenv("EMAIL_USER")
 PASSWORD = os.getenv("EMAIL_PASS")
 
 
-def get_articles_for_user(user_id=None, db=None):
+def get_articles_for_user(user_id=None, db=None, for_email=False):
     close_db = False
     if db is None:
         db = SessionLocal()
@@ -25,12 +27,26 @@ def get_articles_for_user(user_id=None, db=None):
     try:
         query = db.query(Article)
 
+        # Enforce today/yesterday (matching latest constraints)
+        today = datetime.utcnow().date()
+        yesterday = date.today() - timedelta(days=1)
+        query = query.filter(or_(
+            func.date(Article.published_at) == today,
+            func.date(Article.published_at) == yesterday
+        ))
+
         if user_id:
-            # Exclude articles that have already been delivered to this user
-            delivered_subquery = db.query(Delivery.article_id).filter(
-                Delivery.user_id == user_id
-            )
-            query = query.filter(Article.id.not_in(delivered_subquery))
+            user = db.query(User).filter(User.id == user_id).first()
+            if user and user.preferences:
+                prefs_lower = [p.lower() for p in user.preferences]
+                query = query.filter(func.lower(Article.category).in_(prefs_lower))
+
+            if for_email:
+                # Only exclude articles if we are actively sending an email
+                delivered_subquery = db.query(Delivery.article_id).filter(
+                    Delivery.user_id == user_id
+                )
+                query = query.filter(Article.id.not_in(delivered_subquery))
 
         return query.order_by(Article.published_at.desc()).limit(10).all()
     finally:
@@ -89,9 +105,14 @@ def generate_email_html(articles):
                 </div>
 
                 <!-- TITLE -->
-                <h2 style="color:#f5f5f5;font-size:17px;margin:0 0 8px;">
-                    {art.title}
-                </h2>
+                <div style="margin-bottom:8px;">
+                    <span style="display:inline-block;background:#ef444420;border:1px solid #ef444450;color:#ef4444;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:bold;text-transform:uppercase;margin-bottom:6px;letter-spacing:0.5px;">
+                        {art.category or 'TECH'}
+                    </span>
+                    <h2 style="color:#f5f5f5;font-size:18px;margin:0;line-height:1.4;">
+                        {art.title}
+                    </h2>
+                </div>
 
                 <!-- SUMMARY -->
                 <p style="color:#a3a3a3;font-size:14px;line-height:1.6;margin-bottom:10px;">
@@ -99,7 +120,7 @@ def generate_email_html(articles):
                 </p>
 
                 <!-- CTA -->
-                <a href="https://dev9-web.vercel.app/today"
+                <a href="https://dev9-web.vercel.app/mynews"
                    style="color:#ef4444;text-decoration:none;font-size:13px;font-weight:bold;">
                     > read_more()
                 </a>
@@ -313,7 +334,7 @@ def send_newsletters():
         users = db.query(User).filter_by(is_active=True).all()
 
         for user in users:
-            articles = get_articles_for_user(user.id, db=db)
+            articles = get_articles_for_user(user.id, db=db, for_email=True)
 
             if not articles:
                 skipped += 1

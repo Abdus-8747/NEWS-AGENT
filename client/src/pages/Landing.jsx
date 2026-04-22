@@ -40,7 +40,25 @@ const staggerContainer = {
 
 export default function LandingPage() {
   const [email, setEmail] = useState("");
+  const [preferences, setPreferences] = useState(["technology", "AI"]);
   const [loading, setLoading] = useState(false);
+
+  const categories = [
+    "technology",
+    "AI",
+    "machine learning",
+    "web development",
+    "software engineering",
+    "tech startups"
+  ];
+
+  const handleCategoryToggle = (cat) => {
+    if (preferences.includes(cat)) {
+      setPreferences(preferences.filter((p) => p !== cat));
+    } else {
+      setPreferences([...preferences, cat]);
+    }
+  };
   const [message, setMessage] = useState({ type: "", text: "" });
   const [focused, setFocused] = useState(false);
   const [timeLeft, setTimeLeft] = useState("");
@@ -89,6 +107,7 @@ export default function LandingPage() {
     try {
       const res = await axios.post(`${API_BASE}/api/v1/users/subscribe`, {
         email: email.trim(),
+        preferences: preferences.length > 0 ? preferences : []
       });
 
       const data = res.data;
@@ -100,7 +119,7 @@ export default function LandingPage() {
 
       setMessage({
         type: "success",
-        text: "Subscribed successfully. Your daily tech news will arrive at 9:00 AM.",
+        text: data.message || "Subscribed successfully.",
       });
       setEmail("");
     } catch (error) {
@@ -225,6 +244,28 @@ export default function LandingPage() {
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full rounded border border-[#1f1f1f] bg-[#020202] px-5 py-4 text-sm text-white outline-none transition placeholder-[#525252] focus:border-[#ef4444] focus:ring-1 focus:ring-[#ef4444]"
                     />
+                  </div>
+
+                  <div className="my-4">
+                    <p className="text-xs text-[#a3a3a3] mb-3 uppercase tracking-wider font-mono">Select Topics</p>
+                    <div className="flex flex-wrap gap-2">
+                      {categories.map((cat) => {
+                        const isCompulsory = cat === "AI" || cat === "technology";
+                        return (
+                          <button
+                            key={cat}
+                            type="button"
+                            onClick={() => handleCategoryToggle(cat)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-mono transition-all duration-200 border flex items-center gap-1 ${preferences.includes(cat)
+                              ? "bg-[#ef4444]/20 border-[#ef4444] text-[#ef4444]"
+                              : "bg-[#111] border-[#1f1f1f] text-[#a3a3a3] hover:border-[#ef4444]/50 hover:text-[#ef4444]"
+                              } ${isCompulsory ? "cursor-not-allowed opacity-90" : ""}`}
+                          >
+                            {cat}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
                   <motion.button

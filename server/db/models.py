@@ -2,6 +2,15 @@ from sqlalchemy import Column, Integer, String, Boolean, Text, TIMESTAMP, Foreig
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.postgresql import ARRAY  # Requires PostgreSQL
 from datetime import datetime
+from enum import Enum
+
+class CategoryEnum(str, Enum):
+    TECHNOLOGY = "technology"
+    AI = "AI"
+    MACHINE_LEARNING = "machine learning"
+    WEB_DEVELOPMENT = "web development"
+    SOFTWARE_ENGINEERING = "software engineering"
+    TECH_STARTUPS = "tech startups"
 
 Base = declarative_base()
 
@@ -13,6 +22,7 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     email = Column(String, unique=True, nullable=False)
     is_active = Column(Boolean, default=True)
+    preferences = Column(ARRAY(String), default=list)  # User category preferences
     created_at = Column(TIMESTAMP, default=datetime.utcnow)
 
 
@@ -24,6 +34,7 @@ class Article(Base):
     title = Column(Text, nullable=False)
     description = Column(Text)
     ai_summary = Column(Text)  # Added field
+    category = Column(String)  # Categorized by AI
     url = Column(Text, unique=True)
     image_url = Column(Text)
     author = Column(Text)

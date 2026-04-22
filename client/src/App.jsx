@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LandingPage from "./pages/Landing";
 import TodayNews from "./pages/TodayNews";
+import MyNews from "./pages/MyNews";
 import GitHub from "./pages/GitHub";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
@@ -15,6 +16,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/today" element={<TodayNews />} />
+            <Route path="/mynews" element={<MyNews />} />
             <Route path="/github" element={<GitHub />} />
           </Routes>
         </div>

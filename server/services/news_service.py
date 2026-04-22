@@ -5,7 +5,7 @@ import json
 from dotenv import load_dotenv
 
 from db.connection import SessionLocal
-from db.models import Article
+from db.models import Article, CategoryEnum
 from sqlalchemy.dialects.postgresql import insert
 
 load_dotenv()
@@ -23,14 +23,7 @@ BLOCKED_SOURCES = [
 ]
 
 # 🔍 multi-query expansion
-QUERIES = [
-    "technology",
-    "AI",
-    "machine learning",
-    "web development",
-    "software engineering",
-    "tech startups"
-]
+QUERIES = [category.value for category in CategoryEnum]
 
 
 # =========================
@@ -130,7 +123,7 @@ def is_valid_article(article):
     if "consent" in url:
         return False
 
-    if len(title) < 20:
+    if len(title) < 10:
         return False
 
     if not image_url:
@@ -176,14 +169,18 @@ def _build_groq_prompt(articles):
     instructions = {
         "task": "Select only high-signal developer-relevant tech articles.",
         "rules": [
-            "ONLY include software engineering, AI, dev tools, cloud, cybersecurity.",
+            "ONLY include articles that are directly relevant to software developers.",
             "REMOVE jobs, ads, and generic news.",
             "Prefer practical engineering insights.",
             "Max 15 articles."
         ],
         "schema": {
             "selected_articles": [
-                {"url": "string", "ai_summary": "string"}
+                {
+                    "url": "string",
+                    "ai_summary": "string",
+                    f"category": f"string (strictly categorize as {', '.join([c.value for c in CategoryEnum])})"
+                }
             ]
         },
         "articles": compact
@@ -243,7 +240,10 @@ def select_relevant_with_groq(articles):
     selected_rows = parsed.get("selected_articles", [])
 
     selected_map = {
-        row["url"]: row.get("ai_summary", "")
+        row["url"]: {
+            "ai_summary": row.get("ai_summary", ""),
+            "category": row.get("category", "technology")
+        }
         for row in selected_rows if row.get("url")
     }
 
@@ -252,7 +252,8 @@ def select_relevant_with_groq(articles):
     for article in articles:
         if article["url"] in selected_map:
             item = dict(article)
-            item["ai_summary"] = selected_map[article["url"]]
+            item["ai_summary"] = selected_map[article["url"]]["ai_summary"]
+            item["category"] = selected_map[article["url"]]["category"]
             final.append(item)
 
     return final
@@ -338,6 +339,7 @@ def save_articles(articles):
                 "title": stmt.excluded.title,
                 "description": stmt.excluded.description,
                 "ai_summary": stmt.excluded.ai_summary,
+                "category": stmt.excluded.category,
                 "image_url": stmt.excluded.image_url,
                 "author": stmt.excluded.author,
                 "source": stmt.excluded.source,

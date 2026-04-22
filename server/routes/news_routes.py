@@ -15,6 +15,7 @@ def _serialize_article(article: Article) -> dict:
         "title": article.title,
         "description": article.description,
         "ai_summary": article.ai_summary,
+        "category": article.category,
         "url": article.url,
         "image_url": article.image_url,
         "author": article.author,

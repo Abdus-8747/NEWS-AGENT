@@ -28,9 +28,15 @@ def run_newsletter_delivery_job():
 def start_scheduler():
     global _scheduler_started
 
-    scheduler_enabled = os.getenv("ENABLE_SCHEDULER", "true").strip().lower() in {"1", "true", "yes", "on"}
+    scheduler_enabled = os.getenv("ENABLE_SCHEDULER", "true").lower() in {"1", "true", "yes", "on"}
     if not scheduler_enabled:
-        logger.info("Scheduler is disabled by ENABLE_SCHEDULER")
+        logger.info("Scheduler is disabled")
+        return scheduler
+
+    is_primary = os.getenv("IS_PRIMARY_INSTANCE", "false").lower() == "true"
+
+    if not is_primary:
+        logger.info("Skipping scheduler (not primary instance)")
         return scheduler
 
     if _scheduler_started:
@@ -48,6 +54,7 @@ def start_scheduler():
             coalesce=True,
             misfire_grace_time=600,
         )
+
         scheduler.add_job(
             run_newsletter_delivery_job,
             trigger="cron",
@@ -59,9 +66,10 @@ def start_scheduler():
             coalesce=True,
             misfire_grace_time=600,
         )
+
         scheduler.start()
         _scheduler_started = True
-        logger.info("Daily scheduler started with jobs at 8:50 and 9:00 (%s)", scheduler.timezone)
+        logger.info("Scheduler started (PRIMARY INSTANCE) at %s", scheduler.timezone)
 
     return scheduler
 
