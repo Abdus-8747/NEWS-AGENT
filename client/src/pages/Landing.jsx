@@ -185,10 +185,11 @@ export default function LandingPage() {
               We securely ingest feeds from top developer APIs. Then, our AI agent filters out marketing fluff and perfectly distills tech news into a focused brief—delivered straight to your inbox daily at 9:00 AM.
             </motion.p>
 
-            <motion.div variants={fadeUp} className="grid grid-cols-2 gap-4 sm:grid-cols-3 pt-2">
-              <FeaturePill icon={<Zap />} label="NewsAPI Hook" delay={0.1} />
+            <motion.div variants={fadeUp} className="grid grid-cols-2 gap-4 sm:grid-cols-4 pt-2">
+              <FeaturePill icon={<Zap />} label="Fast" delay={0.1} />
               <FeaturePill icon={<Cpu />} label="AI Curation" delay={0.2} />
-              <FeaturePill icon={<Clock3 />} label="Daily Deploy" delay={0.3} />
+              <FeaturePill icon={<Clock3 />} label="Daily Email" delay={0.3} />
+              <FeaturePill icon={<Newspaper />} label="NewsAPI Integration" delay={0.4} />
             </motion.div>
           </motion.div>
 
@@ -618,7 +619,7 @@ function FeaturePill({ icon, label, delay }) {
       initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 + delay }}
       className="flex items-center justify-center gap-2 rounded border border-[#1f1f1f] bg-[#0A0A0A] px-3 py-2.5 text-xs font-semibold text-[#e5e5e5] font-mono hover:border-[#ef4444]/50 hover:bg-[#111] transition-colors"
     >
-      <span className="text-[#ef4444] [&>svg]:w-4 [&>svg]:h-4">{icon}</span>
+      <span className="text-[#ef4444] [&>svg]:w-5 [&>svg]:h-5">{icon}</span>
       <span>{label}</span>
     </motion.div>
   );
